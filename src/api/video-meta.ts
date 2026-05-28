@@ -4,7 +4,6 @@ import { createVideo, deleteVideo, getVideo, getVideos } from "../db/videos";
 import { respondWithJSON } from "./json";
 import { BadRequestError, NotFoundError, UserForbiddenError } from "./errors";
 import type { BunRequest } from "bun";
-import { dbVideoToSignedVideo } from "./videos";
 import { type Video } from "../db/videos";
 
 export async function handlerVideoMetaCreate(cfg: ApiConfig, req: Request) {
@@ -58,11 +57,6 @@ export async function handlerVideoGet(cfg: ApiConfig, req: BunRequest) {
     throw new NotFoundError("Couldn't find video");
   }
 
-  const presignedVideo = await dbVideoToSignedVideo(cfg, video);
-  if (presignedVideo.videoURL == undefined) {
-    throw Error("presignedVideo.videoURL == undefined")
-  }
-
   return respondWithJSON(200, video);
 }
 
@@ -76,10 +70,5 @@ export async function handlerVideosRetrieve(cfg: ApiConfig, req: Request) {
     throw new NotFoundError("Couldn't find videos");
   }
 
-  const presignedVideos: Video[] = []
-  for (const vid of videos) {
-    presignedVideos.push(await dbVideoToSignedVideo(cfg, vid));
-  }
-
-  return respondWithJSON(200, presignedVideos);
+  return respondWithJSON(200, videos);
 }

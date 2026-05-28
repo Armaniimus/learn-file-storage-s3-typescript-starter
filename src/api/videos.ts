@@ -52,14 +52,10 @@ export async function handlerUploadVideo(cfg: ApiConfig, req: BunRequest) {
 
   try {
     const prefix = await getVideoAspectRatio(processedFile);
-    videoMeta.videoURL = `${prefix}/${filename}`;
+    const key = `${prefix}/${filename}`;
+    videoMeta.videoURL = `${cfg.s3CfDistribution}/${key}`
 
-    const presignedVideo = await dbVideoToSignedVideo(cfg, videoMeta);
-    if (presignedVideo.videoURL == undefined) {
-      throw Error("presignedVideo.videoURL == undefined")
-    }
-
-    const s3File = await cfg.s3Client.file(presignedVideo.videoURL)
+    const s3File = await cfg.s3Client.file(key)
     await s3File.write(Bun.file(processedFile), { type: videoFormData.type });
     await updateVideo(cfg.db, videoMeta);
   } finally {
@@ -69,6 +65,7 @@ export async function handlerUploadVideo(cfg: ApiConfig, req: BunRequest) {
   
   return respondWithJSON(200, null);
 }
+
 async function getVideoAspectRatio(filePath: string) {
   const file = await Bun.spawn({
     cmd: ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "json", filePath],
@@ -105,21 +102,4 @@ async function processVideoForFastStart(inputFilePath:string) {
   console.log(result);
   
   return outputPath;
-}
-
-async function generatePresignedURL(cfg: ApiConfig, key: string, expireTime: number) {
-  return await cfg.s3Client.presign(key, {
-    expiresIn: expireTime,
-    method: "PUT",
-    type: "video/mp4",
-    bucket: cfg.s3Bucket
-  });
-}
-
-export async function dbVideoToSignedVideo(cfg: ApiConfig, video: Video) {
-  if (video.videoURL == undefined) {
-    throw Error("video.videoURL == undefined")
-  }
-  video.videoURL = await generatePresignedURL(cfg, video.videoURL, 3600)
-  return video;
 }
